@@ -21,10 +21,11 @@ import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.Panel;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import org.pentaho.gwt.widgets.client.dialogs.DialogBox;
+import org.pentaho.gwt.widgets.client.utils.ElementUtils;
+import org.pentaho.gwt.widgets.client.utils.string.StringUtils;
 import org.pentaho.ui.xul.gwt.AbstractGwtXulContainer;
 
 public abstract class GenericDialog extends AbstractGwtXulContainer {
-
   protected DialogBox dialog;
   private VerticalPanel contents = new VerticalPanel();
   private String title = "";
@@ -37,11 +38,15 @@ public abstract class GenericDialog extends AbstractGwtXulContainer {
   // requested height is adjusted by this value.
   private static final int HEADER_HEIGHT = 32;
 
+  private static final String ARIA_ROLE_DIALOG = "dialog";
+  private static final String ARIA_ROLE_ALERTDIALOG = "alertdialog";
+  private static final String ATTRIBUTE_ARIA_DESCRIBEDBY = "pen:aria-describedby";
+
   public GenericDialog( String tagName ) {
     super( tagName );
 
     // Default ARIA role.
-    setAriaRole( "dialog" );
+    setAriaRole( ARIA_ROLE_DIALOG );
   }
 
   private void createDialog() {
@@ -62,14 +67,13 @@ public abstract class GenericDialog extends AbstractGwtXulContainer {
   }
 
   public void show() {
-    // Instantiation if delayed to prevent errors with the underlying GWT's not being able to calculate available
-    // size
-    // in the case that the GWT app has been loaded into an iframe that's not visible.
+    // Instantiation is delayed to prevent errors with the underlying GWT's not being able to calculate available
+    // size, in the case that the GWT app has been loaded into an iframe that's not visible.
     if ( dialog == null ) {
       createDialog();
     }
     dialog.setText( title );
-    updateDomAriaRole( dialog );
+    dialog.setAriaRole( getAriaRole() );
 
     contents.clear();
 
@@ -115,6 +119,14 @@ public abstract class GenericDialog extends AbstractGwtXulContainer {
       contents.setHeight( offsetHeight + "px" );
     }
 
+    // ARIA describedBy attribute
+    String describedBy = getAriaDescribedBy();
+    if ( isAriaRoleAlertDialog() && StringUtils.isEmpty( describedBy ) ) {
+      describedBy = ElementUtils.ensureId( dialogContents );
+    }
+
+    dialog.setAriaDescribedBy( describedBy );
+
     dialog.center();
   }
 
@@ -142,4 +154,25 @@ public abstract class GenericDialog extends AbstractGwtXulContainer {
     return !isHidden();
   }
 
+  protected boolean isAriaRoleAlertDialog() {
+    return ARIA_ROLE_ALERTDIALOG.equals( getAriaRole() );
+  }
+
+  // region ariaDescribedBy attribute
+  /**
+   * Gets the identifier of the ARIA description element.
+   */
+  public String getAriaDescribedBy() {
+    return getAttributeValue( ATTRIBUTE_ARIA_DESCRIBEDBY );
+  }
+
+  /**
+   * Sets the identifier of the ARIA description element.
+   *
+   * @param describedById The description element identifier.
+   */
+  public void setAriaDescribedBy( String describedById ) {
+    setAttribute( ATTRIBUTE_ARIA_DESCRIBEDBY, describedById );
+  }
+  // endregion
 }
