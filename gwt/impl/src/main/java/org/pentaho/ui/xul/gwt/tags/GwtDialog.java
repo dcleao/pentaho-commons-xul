@@ -12,7 +12,7 @@
  * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU Lesser General Public License for more details.
  *
- * Copyright (c) 2002-2018 Hitachi Vantara..  All rights reserved.
+ * Copyright (c) 2002-2023 Hitachi Vantara..  All rights reserved.
  */
 
 package org.pentaho.ui.xul.gwt.tags;
@@ -51,7 +51,6 @@ public class GwtDialog extends GenericDialog implements XulDialog {
 
   private XulDomContainer xulContainer;
   private String bgColor = null;
-  private SimplePanel glasspane = new SimplePanel();
   private List<XulButton> dialogButtons = new ArrayList<XulButton>();
   private boolean pack;
 
@@ -109,7 +108,6 @@ public class GwtDialog extends GenericDialog implements XulDialog {
       ignoreIndividualButtonAlign = true;
     }
 
-    // HorizontalPanel buttonPanel = new HorizontalPanel();
     HorizontalPanel buttonPanel = new HorizontalPanel();
     HorizontalPanel leftButtonPanel = new HorizontalPanel();
     HorizontalPanel centerButtonPanel = new HorizontalPanel();
