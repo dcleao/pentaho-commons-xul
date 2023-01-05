@@ -20,6 +20,7 @@ package org.pentaho.ui.xul.gwt.tags;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.gwt.user.client.ui.FocusWidget;
 import org.pentaho.gwt.widgets.client.utils.string.StringUtils;
 import org.pentaho.ui.xul.XulComponent;
 import org.pentaho.ui.xul.XulDomContainer;
@@ -49,6 +50,8 @@ public class GwtDialog extends GenericDialog implements XulDialog {
     } );
   }
 
+  private final static String[] BUTTON_VALUES_AUTO_FOCUS = new String[] { "cancel", "accept", "extra1", "extra2" };
+
   private XulDomContainer xulContainer;
   private String bgColor = null;
   private List<XulButton> dialogButtons = new ArrayList<XulButton>();
@@ -64,6 +67,11 @@ public class GwtDialog extends GenericDialog implements XulDialog {
   // we don't add ourselves to the main screen
   private boolean preventLayout = false;
 
+  // Called by the GwtXulParser, when processing a dialog tag:
+  // 1. Creates the element by calling above's GwtXulHandler#newInstance().
+  // 2. Calls #init(...) on the new element.
+  // 3. Processes each child element and adds it via #addChild( . ).
+  // 4. Calls #layout().
   public void layout() {
     if ( preventLayout ) {
       return;
@@ -75,15 +83,8 @@ public class GwtDialog extends GenericDialog implements XulDialog {
 
       String[] buttonStr = buttons.split( "," );
       for ( String button : buttonStr ) {
-        final String buttonVal = button.trim();
-
         try {
-          XulButton buttonObj = (XulButton) this.xulContainer.getDocumentRoot().createElement( "button" );
-          buttonObj.setLabel( getAttributeValue( "buttonlabel" + buttonVal ) );
-          buttonObj.setTooltiptext( getAttributeValue( "buttonlabel" + buttonVal + "tooltiptext" ) );
-          buttonObj.setOnclick( getAttributeValue( "ondialog" + buttonVal ) );
-          buttonObj.setId( this.getId() + "_" + button );
-          buttonObj.setAlign( getAttributeValue( "pen:" + buttonVal + "buttonalign" ) );
+          XulButton buttonObj = createXulButton( button.trim() );
           this.addChild( buttonObj );
           dialogButtons.add( buttonObj );
         } catch ( XulException e ) {
@@ -92,7 +93,24 @@ public class GwtDialog extends GenericDialog implements XulDialog {
         }
       }
     }
+
     preventLayout = false;
+  }
+
+  private XulButton createXulButton( String buttonValue ) throws XulException {
+    XulButton buttonObj = (XulButton) this.xulContainer.getDocumentRoot().createElement( "button" );
+
+    buttonObj.setLabel( getAttributeValue( "buttonlabel" + buttonValue ) );
+    buttonObj.setTooltiptext( getAttributeValue( "buttonlabel" + buttonValue + "tooltiptext" ) );
+    buttonObj.setOnclick( getAttributeValue( "ondialog" + buttonValue ) );
+    buttonObj.setId( buildButtonId( buttonValue ) );
+    buttonObj.setAlign( getAttributeValue( "pen:" + buttonValue + "buttonalign" ) );
+
+    return buttonObj;
+  }
+
+  private String buildButtonId( String buttonValue ) {
+    return this.getId() + "_" + buttonValue;
   }
 
   @Override
@@ -366,24 +384,72 @@ public class GwtDialog extends GenericDialog implements XulDialog {
 
     super.show();
 
+    // Remove child XUL buttons before super.layout(),
+    // so that corresponding managed objects are not added to `container`,
+    // as this is set to be the dialog's body element.
     for ( XulButton btn : dialogButtons ) {
       this.removeChild( btn );
     }
 
     super.layout();
+
     if ( dialogButtons.isEmpty() ) {
-      this.dialog.addStyleName( "pentaho-dialog-buttonless" );
+      dialog.addStyleName( "pentaho-dialog-buttonless" );
     } else {
-      this.dialog.removeStyleName( "pentaho-dialog-buttonless" );
-    }
-    for ( XulButton btn : dialogButtons ) {
-      this.addChild( btn );
+      dialog.removeStyleName( "pentaho-dialog-buttonless" );
+
+      // Add child XUL buttons back.
+      for ( XulButton btn : dialogButtons ) {
+        this.addChild( btn );
+      }
+
+      if ( isAriaRoleAlertDialog() ) {
+        XulButton defaultButton = getDefaultButton();
+        if ( defaultButton != null ) {
+          Widget buttonWidget = (Widget) defaultButton.getManagedObject();
+          if ( buttonWidget instanceof FocusWidget ) {
+            dialog.setFocusWidget( (FocusWidget) buttonWidget );
+          }
+        }
+      }
     }
 
     // call into the method that sets the hover style on button elements for IE,
     // since hover pseudo-classes don't work when not in quirksmode
     ElementUtils.setupButtonHoverEffect();
+  }
 
+  /**
+   * Gets the default button.
+   * <p>
+   *   Returns the first defined button amongst:
+   *   <code>cancel</code>, <code>accept</code>, <code>extra1</code> and <code>extra2</code>.
+   * </p>
+   *
+   * @return The default button, if any; <code>null</code>, otherwise.
+   */
+  private XulButton getDefaultButton() {
+
+    for ( String buttonValue : BUTTON_VALUES_AUTO_FOCUS ) {
+      XulButton button = findButtonByValue( buttonValue );
+      if ( button != null ) {
+        return button;
+      }
+    }
+
+    return null;
+  }
+
+  private XulButton findButtonByValue( String buttonValue ) {
+    final String buttonId = buildButtonId( buttonValue );
+
+    for ( XulButton button : dialogButtons ) {
+      if ( buttonId.equals( button.getId() ) ) {
+        return button;
+      }
+    }
+
+    return null;
   }
 
   public String getOnclose() {
