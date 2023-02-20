@@ -17,6 +17,11 @@
 
 package org.pentaho.ui.xul.gwt.tags;
 
+import com.google.gwt.dom.client.Document;
+import com.google.gwt.dom.client.NativeEvent;
+import com.google.gwt.event.dom.client.DomEvent;
+import com.google.gwt.event.dom.client.KeyCodes;
+import org.pentaho.gwt.widgets.client.utils.ElementUtils;
 import org.pentaho.ui.xul.XulComponent;
 import org.pentaho.ui.xul.XulDomContainer;
 import org.pentaho.ui.xul.components.XulMenuitem;
@@ -120,6 +125,17 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
           case Event.ONCLICK:
             frameCover.cover();
             break;
+
+          case Event.ONKEYDOWN:
+            if ( event.getKeyCode() == KeyCodes.KEY_TAB ) {
+              if ( event.getShiftKey() ) {
+                getRootMenu().tabPrevious();
+              } else {
+                getRootMenu().tabNext();
+              }
+              event.preventDefault();
+            }
+            break;
         }
         super.onBrowserEvent( event );
       }
@@ -194,6 +210,44 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
           parentMenu.hide();
         }
       }
+    }
+  }
+
+  private GwtMenubar getRootMenu() {
+    GwtMenubar root = this;
+    XulComponent parent = this.getParent();
+    return parent instanceof GwtMenubar ? ( (GwtMenubar) parent ).getRootMenu() : this;
+  }
+
+  private void forwardKeyDownEvent( Event event ) {
+    NativeEvent forwardedEvent = Document.get().createKeyDownEvent(
+      event.getCtrlKey(), event.getAltKey(), event.getShiftKey(), event.getMetaKey(), event.getKeyCode() );
+
+    this.menubar.focus();
+    DomEvent.fireNativeEvent( forwardedEvent, this.menubar );
+  }
+
+  private void tabNext() {
+    com.google.gwt.dom.client.Element elem = ElementUtils.findNextKeyboardFocusableElement( this.menubar.getElement() );
+    if ( elem != null ) {
+      Scheduler.get().scheduleFinally( new Scheduler.ScheduledCommand() {
+        @Override
+        public void execute() {
+          elem.focus();
+        }
+      } );
+    }
+  }
+
+  private void tabPrevious() {
+    com.google.gwt.dom.client.Element elem = ElementUtils.findPreviousKeyboardFocusableElement( this.menubar.getElement() );
+    if ( elem != null ) {
+      Scheduler.get().scheduleFinally( new Scheduler.ScheduledCommand() {
+        @Override
+        public void execute() {
+          elem.focus();
+        }
+      } );
     }
   }
 
