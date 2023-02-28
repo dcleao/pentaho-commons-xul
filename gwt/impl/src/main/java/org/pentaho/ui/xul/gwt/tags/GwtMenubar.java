@@ -122,6 +122,11 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
           case Event.ONCLICK:
             frameCover.cover();
             break;
+        }
+
+        super.onBrowserEvent( event );
+
+        switch ( DOM.eventGetType( event ) ) {
           case Event.ONKEYDOWN:
             if ( event.getKeyCode() == KeyCodes.KEY_TAB ) {
               GwtMenubar rootMenu = getRootMenu();
@@ -134,7 +139,6 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
             }
             break;
         }
-        super.onBrowserEvent( event );
       }
     };
 
