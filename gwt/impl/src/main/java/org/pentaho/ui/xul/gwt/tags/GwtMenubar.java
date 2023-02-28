@@ -12,7 +12,7 @@
  * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU Lesser General Public License for more details.
  *
- * Copyright (c) 2002-2017 Hitachi Vantara..  All rights reserved.
+ * Copyright (c) 2002-2023 Hitachi Vantara. All rights reserved.
  */
 
 package org.pentaho.ui.xul.gwt.tags;
@@ -55,11 +55,12 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
   private boolean autoClose = false;
   private final int closeDelay = 100;
   private FrameCover frameCover = null;
+  private boolean isFrameCovered = false;
 
   // dynamic values
   private boolean mouseOver = false;
 
-  protected class MenuBar extends com.google.gwt.user.client.ui.MenuBar {
+  protected static class MenuBar extends com.google.gwt.user.client.ui.MenuBar {
     private GwtMenubar gwtMenubar;
 
     public MenuBar( boolean vertical ) {
@@ -73,13 +74,10 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
 
     @Override
     public void focus() {
-      if ( gwtMenubar != null ) {
-        XulComponent parent = gwtMenubar.getParent();
-        // not top menu
-        if ( parent != null && parent instanceof GwtMenubar ) {
-          closeAllChildren( false );
-        }
+      if ( gwtMenubar != null && !gwtMenubar.isRootMenu() ) {
+        closeAllChildren( false );
       }
+
       super.focus();
     }
 
@@ -90,6 +88,11 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
     public GwtMenubar getGwtMenubar() {
       return gwtMenubar;
     }
+
+    protected native boolean hasChildPopupMenuShowing() /*-{
+      var popup = this.@com.google.gwt.user.client.ui.MenuBar::popup;
+      return popup != null && popup.@com.google.gwt.user.client.ui.PopupPanel::isShowing()();
+    }-*/;
   }
 
   public static void register() {
@@ -118,10 +121,6 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
       @Override
       public void onBrowserEvent( Event event ) {
         switch ( DOM.eventGetType( event ) ) {
-          case Event.ONMOUSEOVER:
-          case Event.ONCLICK:
-            frameCover.cover();
-            break;
           case Event.ONKEYDOWN:
             if ( event.getKeyCode() == KeyCodes.KEY_TAB ) {
               GwtMenubar rootMenu = getRootMenu();
@@ -135,6 +134,11 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
             break;
         }
         super.onBrowserEvent( event );
+
+        // Anticipating `isFrameCovered` condition for efficiency.
+        if ( !isFrameCovered && getRootMenu().hasChildPopupMenuShowing() ) {
+          maybeCover();
+        }
       }
     };
 
@@ -150,9 +154,7 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
     menubar.addCloseHandler( new CloseHandler<PopupPanel>() {
       @Override
       public void onClose( CloseEvent<PopupPanel> event ) {
-        if ( !menubar.isVisible() ) {
-          frameCover.remove();
-        }
+        maybeUncover();
       }
     } );
 
@@ -188,6 +190,20 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
     super.init( srcEle, container );
   }
 
+  private void maybeCover() {
+    if ( !isFrameCovered ) {
+      isFrameCovered = true;
+      frameCover.cover();
+    }
+  }
+
+  private void maybeUncover() {
+    if ( isFrameCovered ) {
+      isFrameCovered = false;
+      frameCover.remove();
+    }
+  }
+
   private void hide() {
     XulComponent parentComponent = getParent();
     if ( parentComponent instanceof GwtMenubar ) {
@@ -213,6 +229,14 @@ public class GwtMenubar extends AbstractGwtXulContainer implements XulMenubar {
   private GwtMenubar getRootMenu() {
     XulComponent parent = this.getParent();
     return parent instanceof GwtMenubar ? ( (GwtMenubar) parent ).getRootMenu() : this;
+  }
+
+  private boolean isRootMenu() {
+    return !( this.getParent() instanceof GwtMenubar );
+  }
+
+  private boolean hasChildPopupMenuShowing() {
+    return menubar.hasChildPopupMenuShowing();
   }
 
   protected void closeAllChildren( boolean focus ) {

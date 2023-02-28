@@ -44,15 +44,6 @@ public class FrameCover {
 
   private static FocusPanel frameLid;
 
-  public FrameCover() {
-    Window.addResizeHandler( new ResizeHandler() {
-      @Override
-      public void onResize( ResizeEvent event ) {
-        setFrameSize();
-      }
-    } );
-  }
-
   public void addClickHandler( ClickHandler handler ) {
     clickHandlers.add( handler );
   }
@@ -84,7 +75,15 @@ public class FrameCover {
 
       RootPanel.get().add( frameLid, 0, 0 );
       frameLid.setVisible( true );
+      frameLid.addStyleName( "pen-frame-cover" );
       setFrameSize();
+
+      Window.addResizeHandler( new ResizeHandler() {
+        @Override
+        public void onResize( ResizeEvent event ) {
+          setFrameSize();
+        }
+      } );
     }
     frameLid.getElement().getStyle().setDisplay( Style.Display.BLOCK );
     GlassPane.getInstance().show();
@@ -102,9 +101,6 @@ public class FrameCover {
   }
 
   private void setFrameSize() {
-    if ( frameLid == null ) {
-      return;
-    }
     // get all iFrames on the document
     NodeList<Element> iframes = Document.get().getElementsByTagName( "iframe" );
 
