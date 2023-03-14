@@ -21,6 +21,7 @@ import com.google.gwt.user.client.ui.HorizontalPanel;
 import com.google.gwt.user.client.ui.Panel;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import org.pentaho.gwt.widgets.client.dialogs.DialogBox;
+import org.pentaho.gwt.widgets.client.panel.HorizontalFlexPanel;
 import org.pentaho.gwt.widgets.client.panel.VerticalFlexPanel;
 import org.pentaho.gwt.widgets.client.utils.ElementUtils;
 import org.pentaho.gwt.widgets.client.utils.string.StringUtils;
@@ -28,7 +29,7 @@ import org.pentaho.ui.xul.gwt.AbstractGwtXulContainer;
 
 public abstract class GenericDialog extends AbstractGwtXulContainer {
   protected DialogBox dialog;
-  private VerticalPanel contents = new VerticalFlexPanel();
+  private VerticalFlexPanel contents = new VerticalFlexPanel();
   private String title = "";
 
   public static final int CANCEL = 0;
@@ -74,21 +75,23 @@ public abstract class GenericDialog extends AbstractGwtXulContainer {
     contents.clear();
 
     // implement the buttons
-    VerticalPanel panel = new VerticalFlexPanel();
+    VerticalFlexPanel panel = new VerticalFlexPanel();
 
     Panel dialogContents = getDialogContents();
     dialogContents.setSize( "100%", "100%" );
 
-    dialogContents.setStyleName( "dialog-content" ); //$NON-NLS-1$
+    dialogContents.addStyleName( "dialog-content" ); //$NON-NLS-1$
 
     panel.add( dialogContents );
     panel.setCellHeight( dialogContents, "100%" );
     panel.addStyleName( "dialog" );
+    panel.setFlexItemsAuto( true );
     panel.setWidth( "100%" ); //$NON-NLS-1$
     panel.setSpacing( 0 );
     panel.setHeight( "100%" ); //$NON-NLS-1$
     contents.add( panel );
     contents.setCellHeight( panel, "100%" );
+    contents.addRowStyleName( panel, "flex-item-auto" );
 
     if ( getBgcolor() != null ) {
       dialogContents.getElement().getStyle().setProperty( "backgroundColor", getBgcolor() );
@@ -104,9 +107,9 @@ public abstract class GenericDialog extends AbstractGwtXulContainer {
 
     Panel buttonPanel = this.getButtonPanel();
     buttonPanel.setWidth( "100%" );
-
-    HorizontalPanel buttonPanelWrapper = new HorizontalPanel();
-    buttonPanelWrapper.setStyleName( "button-panel" ); //$NON-NLS-1$
+    
+    HorizontalPanel buttonPanelWrapper = new HorizontalFlexPanel();
+    buttonPanelWrapper.addStyleName( "button-panel" ); //$NON-NLS-1$
     buttonPanelWrapper.add( buttonPanel );
     buttonPanelWrapper.setWidth( "100%" ); //$NON-NLS-1$
     buttonPanelWrapper.setCellWidth( buttonPanel, "100%" );
