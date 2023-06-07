@@ -17,19 +17,29 @@
 
 package org.pentaho.ui.xul.gwt.tags;
 
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Vector;
-
+import com.allen_sauer.gwt.dnd.client.DragContext;
+import com.allen_sauer.gwt.dnd.client.VetoDragException;
+import com.allen_sauer.gwt.dnd.client.drop.AbstractPositioningDropController;
+import com.google.gwt.core.client.GWT;
+import com.google.gwt.gen2.table.client.SelectionGrid;
+import com.google.gwt.gen2.table.event.client.RowSelectionEvent;
+import com.google.gwt.gen2.table.event.client.RowSelectionHandler;
+import com.google.gwt.user.client.Event;
+import com.google.gwt.user.client.Window;
+import com.google.gwt.user.client.ui.ChangeListener;
+import com.google.gwt.user.client.ui.CheckBox;
+import com.google.gwt.user.client.ui.FlowPanel;
+import com.google.gwt.user.client.ui.HTML;
+import com.google.gwt.user.client.ui.HorizontalPanel;
+import com.google.gwt.user.client.ui.Image;
+import com.google.gwt.user.client.ui.KeyboardListener;
+import com.google.gwt.user.client.ui.Label;
+import com.google.gwt.user.client.ui.SimplePanel;
+import com.google.gwt.user.client.ui.TextBox;
+import com.google.gwt.user.client.ui.Tree;
+import com.google.gwt.user.client.ui.TreeItem;
+import com.google.gwt.user.client.ui.TreeListener;
+import com.google.gwt.user.client.ui.Widget;
 import org.pentaho.gwt.widgets.client.buttons.ImageButton;
 import org.pentaho.gwt.widgets.client.listbox.CustomListBox;
 import org.pentaho.gwt.widgets.client.table.BaseTable;
@@ -72,29 +82,18 @@ import org.pentaho.ui.xul.util.TreeCellEditor;
 import org.pentaho.ui.xul.util.TreeCellEditorCallback;
 import org.pentaho.ui.xul.util.TreeCellRenderer;
 
-import com.allen_sauer.gwt.dnd.client.DragContext;
-import com.allen_sauer.gwt.dnd.client.VetoDragException;
-import com.allen_sauer.gwt.dnd.client.drop.AbstractPositioningDropController;
-import com.google.gwt.core.client.GWT;
-import com.google.gwt.gen2.table.client.SelectionGrid;
-import com.google.gwt.gen2.table.event.client.RowSelectionEvent;
-import com.google.gwt.gen2.table.event.client.RowSelectionHandler;
-import com.google.gwt.user.client.Event;
-import com.google.gwt.user.client.Window;
-import com.google.gwt.user.client.ui.ChangeListener;
-import com.google.gwt.user.client.ui.CheckBox;
-import com.google.gwt.user.client.ui.FlowPanel;
-import com.google.gwt.user.client.ui.HTML;
-import com.google.gwt.user.client.ui.HorizontalPanel;
-import com.google.gwt.user.client.ui.Image;
-import com.google.gwt.user.client.ui.KeyboardListener;
-import com.google.gwt.user.client.ui.Label;
-import com.google.gwt.user.client.ui.SimplePanel;
-import com.google.gwt.user.client.ui.TextBox;
-import com.google.gwt.user.client.ui.Tree;
-import com.google.gwt.user.client.ui.TreeItem;
-import com.google.gwt.user.client.ui.TreeListener;
-import com.google.gwt.user.client.ui.Widget;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Vector;
 
 public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizable, TableColumnSortListener {
   static final String ELEMENT_NAME = "tree";
@@ -877,7 +876,7 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
 
   private void setupTable() {
     List<XulComponent> colCollection = getColumns().getChildNodes();
-    String[] cols = new String[colCollection.size()];
+    String[] colLabels = new String[colCollection.size()];
 
     SelectionGrid.SelectionPolicy selectionPolicy = null;
     if ( "single".equals( getSeltype() ) ) {
@@ -886,41 +885,50 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
       selectionPolicy = SelectionGrid.SelectionPolicy.MULTI_ROW;
     }
 
-    int[] widths = new int[cols.length];
+    int[] widths = new int[colLabels.length];
     int totalFlex = 0;
 
-    for ( int i = 0; i < cols.length; i++ ) {
+    for ( int i = 0; i < colLabels.length; i++ ) {
       totalFlex += colCollection.get( i ).getFlex();
     }
 
-    boolean allFlexing = true;
-    int totalWidth = 0;
-    for ( int i = 0; i < cols.length; i++ ) {
-      cols[i] = ( (XulTreeCol) colCollection.get( i ) ).getLabel();
-      if ( totalFlex > 0 && getWidth() > 0 ) {
-        widths[i] = (int) ( getWidth() * ( (double) colCollection.get( i ).getFlex() / totalFlex ) );
-        totalWidth += widths[i];
-      } else if ( getColumns().getColumn( i ).getWidth() > 0 ) {
-        allFlexing = false;
-        widths[i] = getColumns().getColumn( i ).getWidth();
-        totalWidth += widths[i];
+    int tableWidth = getWidth();
+
+    // Table width for flex purposes.
+    // Lacking the current width of the table to determine pixels to evaluate the flexProportion,
+    // opt to use 100 pixels (and hope no other columns exist with no flex and a fixed width...).
+    // This will transmit the proportions between the columns to the HTML. The fillWidth method will
+    // later transform the column widths so that these fill / occupy all the actual table width,
+    // maintaining these proportions.
+    int flexTableWidth = tableWidth > 0 ? tableWidth : 100;
+
+    for ( int i = 0; i < colLabels.length; i++ ) {
+      XulTreeCol col = (XulTreeCol) colCollection.get( i );
+
+      colLabels[i] = col.getLabel();
+
+      int flex = col.getFlex();
+      if ( flex > 0 ) {
+        // A flex column. Ignores the column width.
+        assert totalFlex > 0;
+        double flexProportion = ( (double) flex ) / totalFlex;
+        widths[i] = (int) ( flexTableWidth * flexProportion );
+      } else {
+        widths[i] = Math.max( 0, col.getWidth() );
       }
     }
 
-    table = new BaseTable( cols, widths, new BaseColumnComparator[cols.length], selectionPolicy, this );
+    table = new BaseTable( colLabels, widths, new BaseColumnComparator[colLabels.length], selectionPolicy, this );
 
     if ( getHeight() != 0 ) {
       table.setHeight( getHeight() + "px" );
     } else {
       table.setHeight( "100%" );
     }
-    if ( getWidth() != 0 ) {
-      table.setWidth( getWidth() + "px" );
+    if ( tableWidth != 0 ) {
+      table.setWidth( tableWidth + "px" );
     } else {
       table.setWidth( "100%" );
-    }
-    if ( allFlexing ) {
-      table.fillWidth();
     }
 
     RowSelectionHandler handler = new RowSelectionHandler() {
