@@ -92,6 +92,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Vector;
 
@@ -444,7 +445,6 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
 
     table.populateTable( currentData, elements );
     int totalFlex = 0;
-    boolean allFlexing = true;
     for ( int i = 0; i < colCount; i++ ) {
       XulTreeCol col = (XulTreeCol) colCollection.get( i );
       // Get the direction of the sort
@@ -454,14 +454,13 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
       if ( col.isSortActive() ) {
         isSortable = true;
         table.setSortingEnabled( true );
-        table.sortColumn( i, sortDirection != null && sortDirection.equals( "ASCENDING" ) ? true : false ); //$NON-NLS-1$
+        table.sortColumn( i, sortDirection != null && sortDirection.equals( "ASCENDING" ) );
       }
+
       int fx = colCollection.get( i ).getFlex();
       totalFlex += fx;
-      if ( fx == 0 ) {
-        allFlexing = false;
-      }
     }
+
     // If the table is sortable then set all columns to be sortable. This enables the sorting by clicking the
     // column header
     if ( isSortable ) {
@@ -469,20 +468,17 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
         table.setColumnSortable( i, true );
       }
     }
+
     if ( totalFlex > 0 ) {
       table.fillWidth();
     } else {
       table.noFill();
     }
-    // If all flexing need to hide horizontal scrolling to fix an IE7 issue
-    if ( allFlexing ) {
-      table.suppressHorizontalScrolling();
-    }
-    colCollection = new ArrayList<XulComponent>();
 
-    if ( this.selectedRows != null && this.selectedRows.length > 0 ) {
-      for ( int i = 0; i < this.selectedRows.length; i++ ) {
-        int idx = this.selectedRows[i];
+    colCollection = new ArrayList<>();
+
+    if ( this.selectedRows != null ) {
+      for ( int idx : this.selectedRows ) {
         if ( idx > -1 && idx < currentData.length ) {
           table.selectRow( idx );
         }
@@ -501,17 +497,32 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
           this.getWidget().removeStyleDependentName( "selected" );
         }
       }
+
       @Override
-      public boolean equals( Object other ){
-        if(other == null) return false;
-        TreeItem otherTreeItem = (TreeItem)other;
-        if(this.getText() != otherTreeItem.getText()) return false;
-        TreeItem thisParent = this.getParentItem(),
-                otherTreeItemParent = otherTreeItem.getParentItem();
-        while( thisParent != null || otherTreeItemParent != null ) {
-          if(thisParent == null) return false;
-          if(otherTreeItemParent == null) return false;
-          if(thisParent.getText() != otherTreeItemParent.getText()) return false;
+      public boolean equals( Object other ) {
+        if ( other == null ) {
+          return false;
+        }
+
+        TreeItem otherTreeItem = (TreeItem) other;
+        if ( !Objects.equals( this.getText(), otherTreeItem.getText() ) ) {
+          return false;
+        }
+
+        TreeItem thisParent = this.getParentItem();
+        TreeItem otherTreeItemParent = otherTreeItem.getParentItem();
+        while ( thisParent != null || otherTreeItemParent != null ) {
+          if ( thisParent == null ) {
+            return false;
+          }
+
+          if ( otherTreeItemParent == null ) {
+            return false;
+          }
+
+          if ( !Objects.equals( thisParent.getText(), otherTreeItemParent.getText() ) ) {
+            return false;
+          }
 
           thisParent = thisParent.getParentItem();
           otherTreeItemParent = otherTreeItemParent.getParentItem();
@@ -519,10 +530,13 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
         return true;
       }
     };
+
     item.setManagedObject( node );
-    if ( item == null || item.getRow() == null || item.getRow().getChildNodes().size() == 0 ) {
+
+    if ( item.getRow() == null || item.getRow().getChildNodes().size() == 0 ) {
       return node;
     }
+
     TreeItemWidget tempWidget = new TreeItemWidget( item );
     tempWidget.setDropIconsVisible( isDropIconsVisible() );
     final TreeItemWidget tWidget = tempWidget;
