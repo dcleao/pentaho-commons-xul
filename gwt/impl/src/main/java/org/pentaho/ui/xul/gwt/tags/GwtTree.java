@@ -22,7 +22,6 @@ import com.allen_sauer.gwt.dnd.client.VetoDragException;
 import com.allen_sauer.gwt.dnd.client.drop.AbstractPositioningDropController;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.gen2.table.client.SelectionGrid;
-import com.google.gwt.gen2.table.event.client.RowSelectionEvent;
 import com.google.gwt.gen2.table.event.client.RowSelectionHandler;
 import com.google.gwt.user.client.Event;
 import com.google.gwt.user.client.Window;
@@ -966,47 +965,62 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
   }
 
   private RowSelectionHandler createRowSelectionHandler() {
-    return new RowSelectionHandler() {
-      @Override
-      public void onRowSelection( RowSelectionEvent event ) {
-        // To change body of implemented methods use File | Settings | File Templates.
-        try {
-          Integer[] selectedRows1 = table.getSelectedRows().toArray( new Integer[table.getSelectedRows().size()] );
+    return event -> {
+      // To change body of implemented methods use File | Settings | File Templates.
+      try {
+        Integer[] selectedRows1 = table.getSelectedRows().toArray( new Integer[table.getSelectedRows().size()] );
 
-          if ( getOnselect() != null && getOnselect().trim().length() > 0 ) {
-            getXulDomContainer().invoke( getOnselect(),
-              new Object[] { selectedRows1.length > 0 ? selectedRows1[0] : null } );
-          }
+        fireOnSelect( selectedRows1 );
 
-          // set.toArray(new Integer[]) doesn't unwrap ><
-          int[] rows = new int[ selectedRows1.length];
-          for ( int i = 0; i < selectedRows1.length; i++ ) {
-            rows[i] = selectedRows1[i];
-          }
-          GwtTree.this.setSelectedRows( rows );
-          GwtTree.this.colCollection = getColumns().getChildNodes();
-          if ( !GwtTree.this.isShowalleditcontrols() ) {
-            if ( curSelectedRow > -1 ) {
-              Object[] curSelectedRowOriginal = new Object[getColumns().getColumnCount()];
+        int[] rows = copyArrayUnboxed( selectedRows1 );
 
-              for ( int j = 0; j < getColumns().getColumnCount(); j++ ) {
-                curSelectedRowOriginal[j] = getColumnEditor( j, curSelectedRow );
-              }
-              table.replaceRow( curSelectedRow, curSelectedRowOriginal );
-            }
-            curSelectedRow = rows[0];
-            Object[] newRow = new Object[getColumns().getColumnCount()];
+        GwtTree.this.setSelectedRows( rows );
+        GwtTree.this.colCollection = getColumns().getChildNodes();
+
+        if ( !GwtTree.this.isShowalleditcontrols() ) {
+          if ( curSelectedRow > -1 ) {
+            Object[] curSelectedRowOriginal = new Object[getColumns().getColumnCount()];
 
             for ( int j = 0; j < getColumns().getColumnCount(); j++ ) {
-              newRow[j] = getColumnEditor( j, rows[0] );
+              curSelectedRowOriginal[j] = getColumnEditor( j, curSelectedRow );
             }
-            table.replaceRow( rows[0], newRow );
+            table.replaceRow( curSelectedRow, curSelectedRowOriginal );
           }
-        } catch ( XulException e ) {
-          e.printStackTrace();
+          curSelectedRow = rows[0];
+          table.replaceRow( curSelectedRow, createEditRow( curSelectedRow ) );
         }
+      } catch ( XulException e ) {
+        e.printStackTrace();
       }
     };
+  }
+
+  private void fireOnSelect( Integer[] selectedRows ) throws XulException {
+    if ( getOnselect() != null && !getOnselect().trim().isEmpty() ) {
+      Integer selectedRow = selectedRows.length > 0 ? selectedRows[0] : null;
+      getXulDomContainer().invoke( getOnselect(), new Object[] { selectedRow } );
+    }
+  }
+
+  private Object[] createEditRow( int row ) {
+    int columnCount = getColumns().getColumnCount();
+    Object[] newRow = new Object[columnCount];
+
+    for ( int j = 0; j < columnCount; j++ ) {
+      newRow[j] = getColumnEditor( j, row );
+    }
+
+    return newRow;
+  }
+
+  private static int[] copyArrayUnboxed( Integer[] source ) {
+    // set.toArray(new Integer[]) doesn't unwrap ><
+    int[] target = new int[ source.length ];
+    for ( int i = 0; i < source.length; i++ ) {
+      target[i] = source[i];
+    }
+
+    return target;
   }
 
   public void updateUI() {
