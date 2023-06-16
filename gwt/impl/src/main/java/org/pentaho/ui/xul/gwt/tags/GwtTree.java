@@ -533,7 +533,7 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
 
     item.setManagedObject( node );
 
-    if ( item.getRow() == null || item.getRow().getChildNodes().size() == 0 ) {
+    if ( item.getRow() == null || item.getRow().getChildNodes().isEmpty() ) {
       return node;
     }
 
@@ -890,31 +890,63 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
 
   private void setupTable() {
     List<XulComponent> colCollection = getColumns().getChildNodes();
-    String[] colLabels = new String[colCollection.size()];
+    int columnCount = colCollection.size();
+    String[] colLabels = new String[columnCount];
+    int[] widths = new int[columnCount];
 
-    SelectionGrid.SelectionPolicy selectionPolicy = null;
-    if ( "single".equals( getSeltype() ) ) {
-      selectionPolicy = SelectionGrid.SelectionPolicy.ONE_ROW;
-    } else if ( "multiple".equals( getSeltype() ) ) {
-      selectionPolicy = SelectionGrid.SelectionPolicy.MULTI_ROW;
+    setupTableColumns( colCollection, colLabels, widths );
+
+    table = new BaseTable( colLabels, widths, new BaseColumnComparator[columnCount], getSelectionPolicy(), this );
+
+    if ( getHeight() != 0 ) {
+      table.setHeight( getHeight() + "px" );
+    } else {
+      table.setHeight( "100%" );
     }
 
-    int[] widths = new int[colLabels.length];
+    if ( getWidth() != 0 ) {
+      table.setWidth( getWidth() + "px" );
+    } else {
+      table.setWidth( "100%" );
+    }
+
+    table.addRowSelectionHandler( createRowSelectionHandler() );
+
+    setWidgetInPanel( table );
+    updateUI();
+  }
+
+  private SelectionGrid.SelectionPolicy getSelectionPolicy() {
+
+    switch ( getSeltype() ) {
+      case "single":
+        return SelectionGrid.SelectionPolicy.ONE_ROW;
+      case "multiple":
+        return SelectionGrid.SelectionPolicy.MULTI_ROW;
+    }
+
+    return null;
+  }
+
+  private int getTotalFlex() {
     int totalFlex = 0;
-
-    for ( int i = 0; i < colLabels.length; i++ ) {
-      totalFlex += colCollection.get( i ).getFlex();
+    for ( XulComponent xulComponent : getColumns().getChildNodes() ) {
+      totalFlex += xulComponent.getFlex();
     }
 
-    int tableWidth = getWidth();
+    return totalFlex;
+  }
 
+  private void setupTableColumns( List<XulComponent> colCollection, String[] colLabels, int[] widths ) {
     // Table width for flex purposes.
     // Lacking the current width of the table to determine pixels to evaluate the flexProportion,
     // opt to use 100 pixels (and hope no other columns exist with no flex and a fixed width...).
     // This will transmit the proportions between the columns to the HTML. The fillWidth method will
     // later transform the column widths so that these fill / occupy all the actual table width,
     // maintaining these proportions.
+    int tableWidth = getWidth();
     int flexTableWidth = tableWidth > 0 ? tableWidth : 100;
+    int totalFlex = getTotalFlex();
 
     for ( int i = 0; i < colLabels.length; i++ ) {
       XulTreeCol col = (XulTreeCol) colCollection.get( i );
@@ -931,40 +963,29 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
         widths[i] = Math.max( 0, col.getWidth() );
       }
     }
+  }
 
-    table = new BaseTable( colLabels, widths, new BaseColumnComparator[colLabels.length], selectionPolicy, this );
-
-    if ( getHeight() != 0 ) {
-      table.setHeight( getHeight() + "px" );
-    } else {
-      table.setHeight( "100%" );
-    }
-    if ( tableWidth != 0 ) {
-      table.setWidth( tableWidth + "px" );
-    } else {
-      table.setWidth( "100%" );
-    }
-
-    RowSelectionHandler handler = new RowSelectionHandler() {
+  private RowSelectionHandler createRowSelectionHandler() {
+    return new RowSelectionHandler() {
       @Override
       public void onRowSelection( RowSelectionEvent event ) {
         // To change body of implemented methods use File | Settings | File Templates.
         try {
-          Integer[] selectedRows = table.getSelectedRows().toArray( new Integer[table.getSelectedRows().size()] );
+          Integer[] selectedRows1 = table.getSelectedRows().toArray( new Integer[table.getSelectedRows().size()] );
 
           if ( getOnselect() != null && getOnselect().trim().length() > 0 ) {
             getXulDomContainer().invoke( getOnselect(),
-                new Object[] { selectedRows.length > 0 ? selectedRows[0] : null } );
+              new Object[] { selectedRows1.length > 0 ? selectedRows1[0] : null } );
           }
 
           // set.toArray(new Integer[]) doesn't unwrap ><
-          int[] rows = new int[selectedRows.length];
-          for ( int i = 0; i < selectedRows.length; i++ ) {
-            rows[i] = selectedRows[i];
+          int[] rows = new int[ selectedRows1.length];
+          for ( int i = 0; i < selectedRows1.length; i++ ) {
+            rows[i] = selectedRows1[i];
           }
           GwtTree.this.setSelectedRows( rows );
           GwtTree.this.colCollection = getColumns().getChildNodes();
-          if ( GwtTree.this.isShowalleditcontrols() == false ) {
+          if ( !GwtTree.this.isShowalleditcontrols() ) {
             if ( curSelectedRow > -1 ) {
               Object[] curSelectedRowOriginal = new Object[getColumns().getColumnCount()];
 
@@ -986,10 +1007,6 @@ public class GwtTree extends AbstractGwtXulContainer implements XulTree, Resizab
         }
       }
     };
-    table.addRowSelectionHandler( handler );
-
-    setWidgetInPanel( table );
-    updateUI();
   }
 
   public void updateUI() {
